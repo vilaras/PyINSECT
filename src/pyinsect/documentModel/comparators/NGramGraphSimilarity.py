@@ -10,11 +10,10 @@
  Created on May 24, 2017, 3:56 PM
 """
 
-import logging
+from functools import reduce
 
 from pyinsect.documentModel.comparators.Operator import BinaryOperator
 
-logger = logging.getLogger(__name__)
 
 # a general similarity class
 # that acts as a pseudo-interface
@@ -127,13 +126,9 @@ class SimilarityNVS(Similarity):
     def getSimilarityDouble(self, ngg1, ngg2):
         SS = SimilaritySS()
         VS = SimilarityVS()
-
-        try:
-            return (VS.getSimilarityDouble(ngg1, ngg2) * 1.0) / SS.getSimilarityDouble(
-                ngg1, ngg2
-            )
-        except ZeroDivisionError:
-            return 0.0
+        return (VS.getSimilarityDouble(ngg1, ngg2) * 1.0) / SS.getSimilarityDouble(
+            ngg1, ngg2
+        )
 
     # given two ngram graphs
     # returns the NVS-similarity
@@ -159,88 +154,98 @@ class SimilarityNVS(Similarity):
 
 class SimilarityHPG(Similarity):
     """A custom `Similarity` metric tailored to the complexities
-    of Hierarchical Proximity Graphs (`HPG`).
+    of Hierarchical Proximity Graphs (HPG - `DocumentNGramHGraph`).
 
     Given two HPGs, the `Value Similarity` of every sub-graph pair is computed,
     on a pair level basis, and the weighted mean of among all levels is considered
     the HPGs Value Similarity.
     """
 
-    def __init__(self, per_level_similarity_metric):
-        super().__init__()
+    def __init__(
+        self, per_level_similarity_metric_type, commutative=True, distributional=False
+    ):
+        super().__init__(commutative=commutative, distributional=distributional)
 
-        self._per_level_similarity_metric = per_level_similarity_metric
+        self._per_level_similarity_metric = per_level_similarity_metric_type(
+            commutative=commutative, distributional=distributional
+        )
 
     def getSimilarityDouble(self, document_n_gram_h_graph1, document_n_gram_h_graph2):
         if not document_n_gram_h_graph1 and not document_n_gram_h_graph2:
-            logger.debug(
-                "Both %s and %s graphs are empty",
-                document_n_gram_h_graph1,
-                document_n_gram_h_graph2,
-            )
             return 1
 
         if not document_n_gram_h_graph1 or not document_n_gram_h_graph2:
-            logger.debug(
-                "One of %s and %s graphs are empty",
-                document_n_gram_h_graph1,
-                document_n_gram_h_graph2,
-            )
             return 0
 
-        lvls, similarity = [], 0
+        similarity = 0
 
-        for lvl, (current_1, current_2) in enumerate(
+        for level, (current_1, current_2) in enumerate(
             zip(document_n_gram_h_graph1, document_n_gram_h_graph2), start=1
         ):
-            logger.debug(
-                "Calculating similarity of graphs %s and %s on level %02d",
-                current_1,
-                current_2,
-                lvl,
-            )
-
-            if not current_1 and not current_2:
-                # NOTE: In the context a multi-level HPG, it is highly probable that,
-                # one or more sub-graph might degenerate to empty graphs.
-                # Given a similarity metric such as `SimilarityNVS`,
-                # this would entail, that the similarity of two identical HPGs,
-                # containing empty sub-graphs would not receive the expected
-                # value of 1.
-                # For the time being, such degenerate sub-graphs are going
-                # to be completely ignored when calculating the similarity of
-                # 2 HPGs.
-                # For example, given 2 5 level HPGs, if levels 4 and 5 are empty
-                # and every other corresponding sub-graphs of the two are identical
-                # the HPG similarity of the two is going to be calculated as such
-                # `(1 * 1 + 1 * 2 + 1 * 3) / (1 + 2 + 3)`
-                # instead of
-                # `(1 * 1 + 1 * 2 + 1 * 3 + 0 * 4 + 0 * 5) / (1 + 2 + 3 + 4 + 5)`
-                logger.debug("Both %s and %s graphs are empty", current_1, current_2)
-                continue
-
             current_lvl_similarity = (
                 self._per_level_similarity_metric.getSimilarityDouble(
-                    current_1, current_2
+                    current_1, current_2    
                 )
             )
 
-            logger.debug(
-                "The similarity of graphs %s and %s is %05.3f",
-                current_1,
-                current_2,
-                current_lvl_similarity,
+            similarity += level * current_lvl_similarity
+
+        return similarity / reduce(lambda x, y: x + y, range(1, level + 1))
+
+
+class SimilarityMarkov(Similarity):
+
+    # given two ngram graphs
+    # returns their similarity using markov techniques as double
+    def getSimilarityDouble(self, ngg1, ngg2):
+
+        import markov_clustering as mc
+        import networkx as nx
+        from scipy.spatial.distance import hamming
+
+        g1 = ngg1.getGraph()
+        g2 = ngg2.getGraph()
+        n1 = g1.nodes()
+        n2 = g2.nodes()
+
+        if n1 == 0 or n2 == 0:
+            return 1.0
+
+        # remove duplicates and order the union of nodes of the 2 graphs, 
+        # all in one ugly unmaintainable line of python code
+        ordered_nodes = sorted(list(
+            set(n1).union(
+                set(n2)
             )
+        ))
 
-            similarity += lvl * current_lvl_similarity
+        g1.add_nodes_from(map(tuple, n2))
+        g2.add_nodes_from(map(tuple, n1))
 
-            logger.debug(
-                "The overall similarity of graph %s and graph %s is %05.3f",
-                document_n_gram_h_graph1,
-                document_n_gram_h_graph2,
-                (similarity / sum(lvls)) if lvls else 0,
-            )
+        # force an ordering on the nodes with second argument
+        A1 = nx.linalg.graphmatrix.adjacency_matrix(g1, ordered_nodes)
+        A2 = nx.linalg.graphmatrix.adjacency_matrix(g2, ordered_nodes)
 
-            lvls.append(lvl)
+        result1 = mc.run_mcl(A1).todense().flatten()
+        result2 = mc.run_mcl(A2).todense().flatten()
 
-        return similarity / sum(lvls) if lvls else 0
+        # print(result1)
+        # print(result2)
+
+        return 1 - hamming(result1, result2)
+
+
+    # given two ngram graphs
+    # returns the similarity
+    # components on a dictionary
+    def getSimilarityComponents(self, ngg1, ngg2):
+        return {"Markov": self.getSimilarityDouble(ngg1, ngg2)}
+
+    # given similarity components
+    # extracts the SS measure
+    # if existent and returns it as double
+    def getSimilarityFromComponents(self, Dict):
+        if "Markov" in Dict:
+            return Dict["Markov"]
+        else:
+            return 0.0
