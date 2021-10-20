@@ -44,9 +44,7 @@ if debug:
 lorem_ipsum = """Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis pretium. Integer tincidunt. Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus. Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Aliquam lorem ante, dapibus in, viverra quis, feugiat a, tellus. Phasellus viverra nulla ut metus varius laoreet. Quisque rutrum. Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies nisi. Nam eget dui. Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, sem quam semper libero, sit amet adipiscing sem neque sed ipsum. Nam quam nunc, blandit vel, luctus pulvinar, hendrerit id, lorem. Maecenas nec odio et ante tincidunt tempus. Donec vitae sapien ut libero venenatis faucibus. Nullam quis ante. Etiam sit amet orci eget eros faucibus tincidunt. Duis leo. Sed fringilla mauris sit amet nibh. Donec sodales sagittis magna. Sed consequat, leo eget bibendum sodales, augue velit cursus nunc"""
 
 # take the n first sentences of lorem ipsum (gradually increase the text size)
-# sample_sentences = ["".join(lorem_ipsum.split('.')[:i]) for i in range(1, 20)]
-
-sample_sentences = ["""adipiscing elit. Aenean commodo ligula eget dolor.""", """Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor."""]
+sample_sentences = ["".join(lorem_ipsum.split('.')[:i]) for i in range(1, 20)]
 
 repetitions = 3
 alterations = [10 * x for x in range(1, 8)] #percent changes
@@ -72,8 +70,8 @@ for sentence in sample_sentences:
             res_sm.append(sm(ngg, ngg_alt))
             res_snvs.append(snvs(ngg, ngg_alt))
 
-        mes_sm[alt_per] = (np.mean(res_sm), np.std(res_sm))
-        mes_nvs[alt_per] = (np.mean(res_snvs), np.std(res_snvs))
+        mes_sm[100-alt_per] = (np.mean(res_sm), np.std(res_sm))
+        mes_nvs[100-alt_per] = (np.mean(res_snvs), np.std(res_snvs))
 
 
     x1 = list(map(lambda x: x[0], mes_sm.values()))

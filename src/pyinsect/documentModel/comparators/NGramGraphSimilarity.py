@@ -232,7 +232,7 @@ class SimilarityMarkov(Similarity):
         # print(result1)
         # print(result2)
 
-        return 1 - hamming(result1, result2)
+        return hamming(result1, result2)
 
 
     # given two ngram graphs
