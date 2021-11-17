@@ -211,6 +211,9 @@ class SimilarityMarkov(Similarity):
         if n1 == 0 or n2 == 0:
             return 1.0
 
+        print(n1)
+        print(n2)
+
         # remove duplicates and order the union of nodes of the 2 graphs, 
         # all in one ugly unmaintainable line of python code
         ordered_nodes = sorted(list(
@@ -218,6 +221,8 @@ class SimilarityMarkov(Similarity):
                 set(n2)
             )
         ))
+
+        print(ordered_nodes)
 
         g1.add_nodes_from(map(tuple, n2))
         g2.add_nodes_from(map(tuple, n1))
@@ -228,9 +233,6 @@ class SimilarityMarkov(Similarity):
 
         result1 = mc.run_mcl(A1).todense().flatten()
         result2 = mc.run_mcl(A2).todense().flatten()
-
-        # print(result1)
-        # print(result2)
 
         return hamming(result1, result2)
 
